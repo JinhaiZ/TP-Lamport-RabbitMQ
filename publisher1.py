@@ -3,7 +3,7 @@ import pika
 import sys
 import time
 
-def main(exchange_name):
+def ExamplePublisher(exchange_name):
     connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
     channel = connection.channel()
 
@@ -21,4 +21,4 @@ def main(exchange_name):
 
 if __name__ == '__main__':
     exchange_name = sys.argv[1]
-    main(exchange_name)
+    ExamplePublisher(exchange_name)

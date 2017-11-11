@@ -5,6 +5,8 @@ import pika
 import sys
 import json
 import time
+from multiprocessing import Process, Pipe
+import os
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
@@ -27,9 +29,8 @@ class ExampleConsumer(object):
 
     EXCHANGE_TYPE = 'fanout'
     ROUTING_KEY = ''
-    PUBLISH_INTERVAL = 2
 
-    def __init__(self, queue_name, exchange_names, exchange):
+    def __init__(self, queue_name, exchange_names):
         """Create a new instance of the consumer class, passing in the AMQP
         URL used to connect to RabbitMQ.
 
@@ -43,8 +44,6 @@ class ExampleConsumer(object):
         self._url = "localhost"
         self.QUEUE = queue_name
         self.exchange_bindings = exchange_names
-        self.exchange = exchange
-        self.count = 1
         LOGGER.info('Queue is %s', self.QUEUE)
 
     def connect(self):
@@ -223,7 +222,6 @@ class ExampleConsumer(object):
         """
         LOGGER.info('Queue bound')
         self.start_consuming()
-        self.start_publishing()
 
     def start_consuming(self):
         """This method sets up the consumer by first calling
@@ -348,54 +346,11 @@ class ExampleConsumer(object):
         LOGGER.info('Closing connection')
         self._connection.close()
 
-    def start_publishing(self):
-        """This method will enable delivery confirmations and schedule the
-        first message to be sent to RabbitMQ
-
-        """
-        LOGGER.info('Issuing consumer related RPC commands')
-        #self.enable_delivery_confirmations()
-        self.schedule_next_message()
-
-    def schedule_next_message(self):
-        """If we are not closing our connection to RabbitMQ, schedule another
-        message to be delivered in PUBLISH_INTERVAL seconds.
-
-        """
-        LOGGER.info('Scheduling next message for %0.1f seconds',
-                    self.PUBLISH_INTERVAL)
-        self._connection.add_timeout(self.PUBLISH_INTERVAL,
-                                     self.publish_message)
 
 
-    def publish_message(self):
-        """If the class is not stopping, publish a message to RabbitMQ,
-        appending a list of deliveries with the message number that was sent.
-        This list will be used to check for delivery confirmations in the
-        on_delivery_confirmations method.
-
-        Once the message has been sent, schedule another message to be sent.
-        The main reason I put scheduling in was just so you can get a good idea
-        of how the process is flowing by slowing down and speeding up the
-        delivery intervals by changing the PUBLISH_INTERVAL constant in the
-        class.
-
-        """
-        if self._channel is None or not self._channel.is_open:
-            LOGGER.info(' ####connection not open')
-            return
-
-        message = "I {} send msg {}".format(self.exchange, str(self.count))
-
-        self._channel.basic_publish(self.exchange, self.ROUTING_KEY,
-                                    json.dumps(message, ensure_ascii=False))
-        LOGGER.info('###Published message # %r', message)
-        self.count += 1
-
-
-def main(queue_name, exchange_names, exchange):
+def main(queue_name, exchange_names):
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-    example = ExampleConsumer(queue_name, exchange_names, exchange)
+    example = ExampleConsumer(queue_name, exchange_names)
     try:
         example.run()
     except KeyboardInterrupt:
@@ -404,5 +359,5 @@ def main(queue_name, exchange_names, exchange):
 
 if __name__ == '__main__':
     args = str(sys.argv)
-    main(sys.argv[1], sys.argv[2].split(','), sys.argv[3]) # args[1] is queue name # args[2] is binding X
-    print(sys.argv[1], sys.argv[2].split(','), sys.argv[3])
+    main(sys.argv[1], sys.argv[2].split(',')) # args[1] is queue name # args[2] is binding X
+    print(sys.argv[1], sys.argv[2].split(','))
