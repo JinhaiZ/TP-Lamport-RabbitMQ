@@ -22,11 +22,11 @@ class ExampleConsumer(object):
     commands that were issued and that should surface in the output as well.
 
     """
-    EXCHANGE = ['X1', 'X2']
+
     EXCHANGE_TYPE = 'fanout'
     ROUTING_KEY = ''
 
-    def __init__(self, queue_name):
+    def __init__(self, queue_name, exchange_names):
         """Create a new instance of the consumer class, passing in the AMQP
         URL used to connect to RabbitMQ.
 
@@ -39,6 +39,7 @@ class ExampleConsumer(object):
         self._consumer_tag = None
         self._url = "localhost"
         self.QUEUE = queue_name
+        self.EXCHANGE = exchange_names
         LOGGER.info('Queue is %s', self.QUEUE)
 
     def connect(self):
@@ -341,10 +342,9 @@ class ExampleConsumer(object):
         LOGGER.info('Closing connection')
         self._connection.close()
 
-
-def main(queue_name):
+def main(queue_name, exchange_names):
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-    example = ExampleConsumer(queue_name)
+    example = ExampleConsumer(queue_name, exchange_names)
     try:
         example.run()
     except KeyboardInterrupt:
@@ -353,4 +353,4 @@ def main(queue_name):
 
 if __name__ == '__main__':
     args = str(sys.argv)
-    main(sys.argv[1]) # args[1] is queue name
+    main(sys.argv[1], sys.argv[2].split(',')) # args[1] is queue name # args[2] is binding X
