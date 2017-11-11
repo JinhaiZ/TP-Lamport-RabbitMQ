@@ -3,6 +3,8 @@
 import logging
 import pika
 import sys
+import json
+import time
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
@@ -25,8 +27,9 @@ class ExampleConsumer(object):
 
     EXCHANGE_TYPE = 'fanout'
     ROUTING_KEY = ''
+    PUBLISH_INTERVAL = 2
 
-    def __init__(self, queue_name, exchange_names):
+    def __init__(self, queue_name, exchange_names, exchange):
         """Create a new instance of the consumer class, passing in the AMQP
         URL used to connect to RabbitMQ.
 
@@ -39,7 +42,9 @@ class ExampleConsumer(object):
         self._consumer_tag = None
         self._url = "localhost"
         self.QUEUE = queue_name
-        self.EXCHANGE = exchange_names
+        self.exchange_bindings = exchange_names
+        self.exchange = exchange
+        self.count = 1
         LOGGER.info('Queue is %s', self.QUEUE)
 
     def connect(self):
@@ -130,7 +135,7 @@ class ExampleConsumer(object):
         LOGGER.info('Channel opened')
         self._channel = channel
         self.add_on_channel_close_callback()
-        self.setup_exchange(self.EXCHANGE)
+        self.setup_exchange(self.exchange_bindings)
 
     def add_on_channel_close_callback(self):
         """This method tells pika to call the on_channel_closed method if
@@ -203,8 +208,8 @@ class ExampleConsumer(object):
 
         """
         LOGGER.info('Binding %s to %s with %s',
-                    self.EXCHANGE, self.QUEUE, self.ROUTING_KEY)
-        for ex in self.EXCHANGE:
+                    self.exchange_bindings, self.QUEUE, self.ROUTING_KEY)
+        for ex in self.exchange_bindings:
             self._channel.queue_bind(self.on_bindok, self.QUEUE,
                                     ex)
 
@@ -218,6 +223,7 @@ class ExampleConsumer(object):
         """
         LOGGER.info('Queue bound')
         self.start_consuming()
+        self.start_publishing()
 
     def start_consuming(self):
         """This method sets up the consumer by first calling
@@ -342,9 +348,54 @@ class ExampleConsumer(object):
         LOGGER.info('Closing connection')
         self._connection.close()
 
-def main(queue_name, exchange_names):
+    def start_publishing(self):
+        """This method will enable delivery confirmations and schedule the
+        first message to be sent to RabbitMQ
+
+        """
+        LOGGER.info('Issuing consumer related RPC commands')
+        #self.enable_delivery_confirmations()
+        self.schedule_next_message()
+
+    def schedule_next_message(self):
+        """If we are not closing our connection to RabbitMQ, schedule another
+        message to be delivered in PUBLISH_INTERVAL seconds.
+
+        """
+        LOGGER.info('Scheduling next message for %0.1f seconds',
+                    self.PUBLISH_INTERVAL)
+        self._connection.add_timeout(self.PUBLISH_INTERVAL,
+                                     self.publish_message)
+
+
+    def publish_message(self):
+        """If the class is not stopping, publish a message to RabbitMQ,
+        appending a list of deliveries with the message number that was sent.
+        This list will be used to check for delivery confirmations in the
+        on_delivery_confirmations method.
+
+        Once the message has been sent, schedule another message to be sent.
+        The main reason I put scheduling in was just so you can get a good idea
+        of how the process is flowing by slowing down and speeding up the
+        delivery intervals by changing the PUBLISH_INTERVAL constant in the
+        class.
+
+        """
+        if self._channel is None or not self._channel.is_open:
+            LOGGER.info(' ####connection not open')
+            return
+
+        message = "I {} send msg {}".format(self.exchange, str(self.count))
+
+        self._channel.basic_publish(self.exchange, self.ROUTING_KEY,
+                                    json.dumps(message, ensure_ascii=False))
+        LOGGER.info('###Published message # %r', message)
+        self.count += 1
+
+
+def main(queue_name, exchange_names, exchange):
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-    example = ExampleConsumer(queue_name, exchange_names)
+    example = ExampleConsumer(queue_name, exchange_names, exchange)
     try:
         example.run()
     except KeyboardInterrupt:
@@ -353,4 +404,5 @@ def main(queue_name, exchange_names):
 
 if __name__ == '__main__':
     args = str(sys.argv)
-    main(sys.argv[1], sys.argv[2].split(',')) # args[1] is queue name # args[2] is binding X
+    main(sys.argv[1], sys.argv[2].split(','), sys.argv[3]) # args[1] is queue name # args[2] is binding X
+    print(sys.argv[1], sys.argv[2].split(','), sys.argv[3])
