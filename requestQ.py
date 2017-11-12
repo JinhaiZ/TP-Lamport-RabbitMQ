@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 from heapq import heappush, heappop
 
-class requestQueue(object):
+class RequestQueue(object):
+
     def __init__(self):
         self._pq = []                         # list of entries arranged in a heap
         self._entry_finder = {}               # mapping of tasks to entries
@@ -45,7 +46,7 @@ class requestQueue(object):
         raise KeyError('pop from an empty priority queue')
 
 if __name__ == "__main__":
-    requestQ = requestQueue()
+    requestQ = RequestQueue()
     requestQ.add_request(3,0)
     requestQ.add_request(1,1)
     requestQ.add_request(2,1)
