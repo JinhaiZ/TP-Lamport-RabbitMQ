@@ -8,9 +8,12 @@ class RequestQueue(object):
         self._entry_finder = {}               # mapping of tasks to entries
         self._REMOVED = '<removed-task>'      # placeholder for a removed task
 
-
     def add_request(self, site, time):
         'Add a new request from a site, no duplicate request from a same site'
+        if type(site) is str:
+            site = int(site)
+        if type(time) is str:
+            time = int(time)    
         if site in self._entry_finder:
             return
         entry = [time, site]
@@ -31,7 +34,7 @@ class RequestQueue(object):
                 return site
         raise KeyError('pop from an empty priority queue')
 
-    def seek_request(self):
+    def peek_request(self):
         'Peek the lowest logical time request. Raise KeyError if empty.'
         while self._pq:
             if len(self._pq) < 1:
@@ -44,6 +47,9 @@ class RequestQueue(object):
             else:
                 return site
         raise KeyError('pop from an empty priority queue')
+    
+    def size(self):
+        return len(self._pq)
 
 if __name__ == "__main__":
     requestQ = RequestQueue()
@@ -51,6 +57,6 @@ if __name__ == "__main__":
     requestQ.add_request(1,1)
     requestQ.add_request(2,1)
     for i in range(3):
-       print requestQ.seek_request()
+       print requestQ.peek_request()
        print requestQ.pop_request()
 
