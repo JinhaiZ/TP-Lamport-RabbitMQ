@@ -358,6 +358,8 @@ def main(queue_name, exchange_names):
 
 
 if __name__ == '__main__':
-    args = str(sys.argv)
-    main(sys.argv[1], sys.argv[2].split(',')) # args[1] is queue name # args[2] is binding X
-    print(sys.argv[1], sys.argv[2].split(','))
+    if len(sys.argv) != 3:
+        print("usage: python consumer.py its_queue_name binding_exchange_name1,binding_exchange_name2")
+    else:
+        main(sys.argv[1], sys.argv[2].split(','))
+        print(sys.argv[1], sys.argv[2].split(','))
