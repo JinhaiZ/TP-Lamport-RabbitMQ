@@ -22,22 +22,32 @@ class Publisher(object):
         channel.exchange_declare(exchange=exchange_name,
                                 exchange_type='fanout')
         self._channel = channel
-        properties = pika.BasicProperties(reply_to=queue_name)
-                                        #content_type='application/json',
-                                        #headers=hdrs)
-        self._properties = properties
+
+        # lamport
+        self._site_id = int(exchange_name[1:])
         
-    def broadcast(self, message):
+    def send_REQUEST(self, time):
+        message = "{!s},{!s}".format(self._site_id,time)
         self._channel.basic_publish(exchange=self._exchange_name,
                             routing_key='',
                             body=message,
-                            properties=self._properties)
-        LOGGER.info('Broadcasted message : %s', message)
+                            properties=pika.BasicProperties(reply_to=self._queue_name,type="REQUEST"))
+        LOGGER.info('Broadcasted message : %s type REQUEST', message)
 
-    def send_ack(self, dest_queue, message):
+    def send_RELEASE(self, time):
+        message = "{!s},{!s}".format(self._site_id,time)
+        self._channel.basic_publish(exchange=self._exchange_name,
+                            routing_key='',
+                            body=message,
+                            properties=pika.BasicProperties(type="RELEASE"))
+        LOGGER.info('Broadcasted message : %s type RELEASE', message)
+
+    def send_REPLY(self, dest_queue, message):
         self._channel.basic_publish(exchange='',
                             routing_key=dest_queue,
-                            body=message)
+                            body=message,
+                            properties=pika.BasicProperties(type="REPLY"))
+        LOGGER.info('Sent message : %s, type REPLY', message)
 
     def close_connection(self):
         self._connection.close()
@@ -46,13 +56,10 @@ class Publisher(object):
 def main(exchange_name, queue_name):
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     pub = Publisher(exchange_name, queue_name)
-    count = 1
     try:
-        while (True):
-            pub.broadcast("msg # {!s} from {}".format(count,exchange_name))
-            #pub.send_ack("Q2", "ACK from{}".format(exchange_name))
-            time.sleep(2)
-            count += 1
+        pub.send_REQUEST(0)
+        time.sleep(2)
+        pub.send_RELEASE(3)
     except KeyboardInterrupt:
         pub.close_connection()
 
