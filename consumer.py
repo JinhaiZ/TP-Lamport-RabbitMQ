@@ -30,7 +30,7 @@ class ExampleConsumer(object):
     EXCHANGE_TYPE = 'fanout'
     ROUTING_KEY = ''
 
-    def __init__(self, queue_name, exchange_names):
+    def __init__(self, queue_name, exchange_names, lock, logical_time, requestQ, replys):
         """Create a new instance of the consumer class, passing in the AMQP
         URL used to connect to RabbitMQ.
 
@@ -45,6 +45,13 @@ class ExampleConsumer(object):
         self.QUEUE = queue_name
         self.exchange_bindings = exchange_names
         LOGGER.info('Queue is %s', self.QUEUE)
+
+        # lamport
+        self._site_id = int(queue_name[1:])
+        self._lock = lock
+        self._logical_time = logical_time
+        self._requestQ = requestQ
+        self._replys = replys
 
     def connect(self):
         """This method connects to RabbitMQ, returning the connection handle.
@@ -276,6 +283,40 @@ class ExampleConsumer(object):
         LOGGER.info('Received message # %s: %s',
                     basic_deliver.delivery_tag, body)
         self.acknowledge_message(basic_deliver.delivery_tag)
+        if properties.type == "REQUEST":
+            site, logical_time = body.split(',')
+            self._lock.acquire()
+            self._requestQ.add_request(site, logical_time)
+            self._logical_time.value += 1
+            self._lock.release()
+            LOGGER.info('Added request from site[%s] at time[%s]', site, logical_time)
+            LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
+            # send REPLY msg
+            self._channel.basic_publish(exchange='',
+                    routing_key=properties.reply_to,
+                    body="{!s},{!s}".format(self._site_id, self._logical_time),
+                    properties=pika.BasicProperties(type="REPLY"))
+        elif properties.type == "REPLY":
+            site, logical_time = body.split(',')
+            site, logical_time = int(site), int(logical_time)
+            self._lock.acquire()
+            self._logical_time.value = max(self._logical_time.value, logical_time)+1
+            self._replys[site-1] = logical_time
+            self._lock.release()
+        elif properties.type == "RELEASE":
+            site, logical_time = body.split(',')
+            site, logical_time = int(site), int(logical_time)
+            if self._requestQ.peek_request() != site:
+                LOGGER.error('RELEASE site[%s] not equal to site[%s]', self._requestQ.peek_request(), site)
+            else:
+                self._lock.acquire()
+                self._requestQ.pop_request()
+                self._lock.release()
+                LOGGER.info('Deleted request from site[%s] at time[%s]', site, logical_time)
+                LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
+
+        # lamport
+
 
     def acknowledge_message(self, delivery_tag):
         """Acknowledge the message delivery from RabbitMQ by sending a
@@ -346,20 +387,34 @@ class ExampleConsumer(object):
         LOGGER.info('Closing connection')
         self._connection.close()
 
+    # lamport
+    def get_time(self):
+        return self._logical_time.value
+    
+    def add_time(self):
+        self._lock.acquire()
+        self._logical_time.value += 1
+        self._lock.release()
+
+    def set_time(self, time):
+        self._lock.acquire()
+        self._logical_time.value = time
+        self._lock.release() 
 
 
-def main(queue_name, exchange_names):
-    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-    example = ExampleConsumer(queue_name, exchange_names)
-    try:
-        example.run()
-    except KeyboardInterrupt:
-        example.stop()
+
+# def main(queue_name, exchange_names):
+#     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+#     example = ExampleConsumer(queue_name, exchange_names)
+#     try:
+#         example.run()
+#     except KeyboardInterrupt:
+#         example.stop()
 
 
-if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print("usage: python consumer.py its_queue_name binding_exchange_name1,binding_exchange_name2")
-    else:
-        main(sys.argv[1], sys.argv[2].split(','))
-        print(sys.argv[1], sys.argv[2].split(','))
+# if __name__ == '__main__':
+#     if len(sys.argv) != 3:
+#         print("usage: python consumer.py its_queue_name binding_exchange_name1,binding_exchange_name2")
+#     else:
+#         main(sys.argv[1], sys.argv[2].split(','))
+#         print(sys.argv[1], sys.argv[2].split(','))
