@@ -6,7 +6,7 @@ import json
 import time
 from multiprocessing import Process, Pipe
 from consumer import ExampleConsumer
-from publisher1 import ExamplePublisher
+from publisher import Publisher
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
@@ -23,11 +23,13 @@ def start_consumer(queue_name, exchange_names):
 
 
 if __name__ == '__main__':
-    args = str(sys.argv)
-    p = Process(target=start_consumer, args=(sys.argv[1], sys.argv[2].split(',')))
-    p.start()
+    if len(sys.argv) != 4:
+        print("usage: python site.py its_queue_name binding_exchange_name1,binding_exchange_name2 its_exchange_name")
+    else:
+        p = Process(target=start_consumer, args=(sys.argv[1], sys.argv[2].split(',')))
+        p.start()
+        queue_name = sys.argv[2]
+        exchange_name = sys.argv[3]
+        pub = Publisher(exchange_name, queue_name)
 
-    exchange_name = sys.argv[3]
-    ExamplePublisher(exchange_name)
-
-    p.join()
+        p.join()
