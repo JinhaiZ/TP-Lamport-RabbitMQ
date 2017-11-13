@@ -280,38 +280,37 @@ class ExampleConsumer(object):
         :param str|unicode body: The message body
 
         """
-        LOGGER.info('Received message # %s: %s',
-                    basic_deliver.delivery_tag, body)
+        LOGGER.info('Received message # %s: %s properties %s',
+                    basic_deliver.delivery_tag, body, properties)
         self.acknowledge_message(basic_deliver.delivery_tag)
         if properties.type == "REQUEST":
             site, logical_time = body.split(',')
-            self._lock.acquire()
+            site, logical_time = int(site), int(logical_time)
             self._requestQ.add_request(site, logical_time)
-            self._logical_time.value += 1
-            self._lock.release()
+            self._logical_time.value = max(self._logical_time.value, logical_time)+1
             LOGGER.info('Added request from site[%s] at time[%s]', site, logical_time)
             LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
             # send REPLY msg
             self._channel.basic_publish(exchange='',
                     routing_key=properties.reply_to,
-                    body="{!s},{!s}".format(self._site_id, self._logical_time),
+                    body="{!s},{!s}".format(self._site_id, self._logical_time.value),
                     properties=pika.BasicProperties(type="REPLY"))
         elif properties.type == "REPLY":
+            print("hello i am reply!!!!")
             site, logical_time = body.split(',')
             site, logical_time = int(site), int(logical_time)
-            self._lock.acquire()
             self._logical_time.value = max(self._logical_time.value, logical_time)+1
             self._replys[site-1] = logical_time
-            self._lock.release()
+            LOGGER.info('Received REPLY from site[%s] at time[%s]', site, logical_time)
+            LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
         elif properties.type == "RELEASE":
             site, logical_time = body.split(',')
             site, logical_time = int(site), int(logical_time)
             if self._requestQ.peek_request() != site:
                 LOGGER.error('RELEASE site[%s] not equal to site[%s]', self._requestQ.peek_request(), site)
             else:
-                self._lock.acquire()
                 self._requestQ.pop_request()
-                self._lock.release()
+                self._logical_time.value = max(self._logical_time.value, logical_time)+1
                 LOGGER.info('Deleted request from site[%s] at time[%s]', site, logical_time)
                 LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
 
