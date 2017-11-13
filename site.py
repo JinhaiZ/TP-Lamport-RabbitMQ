@@ -69,10 +69,11 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
         site = Site(sys.argv[1], sys.argv[2])
-        #p = Process(target=site.start_consumer, args=())
         site.run_consumer_process()
         site.start_publisher()
+        # scenario begins here
         if sys.argv[1] == '1':
             time.sleep(1)
             site.request_for_critical_section()
+        # scenario ends here
         site._p.join()
