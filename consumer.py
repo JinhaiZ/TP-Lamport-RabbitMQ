@@ -386,22 +386,6 @@ class ExampleConsumer(object):
         LOGGER.info('Closing connection')
         self._connection.close()
 
-    # lamport
-    def get_time(self):
-        return self._logical_time.value
-    
-    def add_time(self):
-        self._lock.acquire()
-        self._logical_time.value += 1
-        self._lock.release()
-
-    def set_time(self, time):
-        self._lock.acquire()
-        self._logical_time.value = time
-        self._lock.release() 
-
-
-
 # def main(queue_name, exchange_names):
 #     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 #     example = ExampleConsumer(queue_name, exchange_names)
