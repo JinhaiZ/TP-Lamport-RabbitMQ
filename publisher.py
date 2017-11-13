@@ -34,21 +34,6 @@ class Publisher(object):
                             properties=pika.BasicProperties(reply_to=self._queue_name,type="REQUEST"))
         LOGGER.info('Broadcasted message : %s type REQUEST', message)
 
-    def send_RELEASE(self, time):
-        message = "{!s},{!s}".format(self._site_id,time)
-        self._channel.basic_publish(exchange=self._exchange_name,
-                            routing_key='',
-                            body=message,
-                            properties=pika.BasicProperties(type="RELEASE"))
-        LOGGER.info('Broadcasted message : %s type RELEASE', message)
-
-    def send_REPLY(self, dest_queue, message):
-        self._channel.basic_publish(exchange='',
-                            routing_key=dest_queue,
-                            body=message,
-                            properties=pika.BasicProperties(type="REPLY"))
-        LOGGER.info('Sent message : %s, type REPLY', message)
-
     def close_connection(self):
         self._connection.close()
 
@@ -58,8 +43,8 @@ def main(exchange_name, queue_name):
     pub = Publisher(exchange_name, queue_name)
     try:
         pub.send_REQUEST(0)
-        time.sleep(2)
-        pub.send_RELEASE(3)
+        # time.sleep(2)
+        # pub.send_RELEASE(3)
     except KeyboardInterrupt:
         pub.close_connection()
 

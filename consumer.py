@@ -52,6 +52,8 @@ class ExampleConsumer(object):
         self._logical_time = logical_time
         self._requestQ = requestQ
         self._replys = replys
+        self._number_of_REPLY = 0
+        self._exchange_name = "X{!s}".format(self._site_id)
 
     def connect(self):
         """This method connects to RabbitMQ, returning the connection handle.
@@ -291,30 +293,60 @@ class ExampleConsumer(object):
             LOGGER.info('Added request from site[%s] at time[%s]', site, logical_time)
             LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
             # send REPLY msg
-            self._channel.basic_publish(exchange='',
-                    routing_key=properties.reply_to,
-                    body="{!s},{!s}".format(self._site_id, self._logical_time.value),
-                    properties=pika.BasicProperties(type="REPLY"))
+            self.send_REPLY(properties.reply_to)
         elif properties.type == "REPLY":
-            print("hello i am reply!!!!")
             site, logical_time = body.split(',')
             site, logical_time = int(site), int(logical_time)
             self._logical_time.value = max(self._logical_time.value, logical_time)+1
             self._replys[site-1] = logical_time
             LOGGER.info('Received REPLY from site[%s] at time[%s]', site, logical_time)
             LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
+            # try to enter Critcal Section
+            self._number_of_REPLY += 1
+            if self.can_enter_crtical_section():
+                self.enter_crtical_section()
         elif properties.type == "RELEASE":
             site, logical_time = body.split(',')
             site, logical_time = int(site), int(logical_time)
-            if self._requestQ.peek_request() != site:
-                LOGGER.error('RELEASE site[%s] not equal to site[%s]', self._requestQ.peek_request(), site)
+            peek_site, peek_time = self._requestQ.peek_request()
+            if peek_site != site:
+                LOGGER.error('RELEASE site[%s] not equal to site[%s]', peek_site, site)
             else:
-                self._requestQ.pop_request()
+                pop_site, pop_time = self._requestQ.pop_request()
                 self._logical_time.value = max(self._logical_time.value, logical_time)+1
-                LOGGER.info('Deleted request from site[%s] at time[%s]', site, logical_time)
+                LOGGER.info('Deleted request from site[%s] at time[%s]', pop_site, pop_time)
                 LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
+                # try to enter Critcal Section
+                if self.can_enter_crtical_section():
+                    self.enter_crtical_section()
 
-        # lamport
+    def can_enter_crtical_section(self):
+        try:
+            peek_site, request_time = self._requestQ.peek_request()
+        except KeyError as err:
+            return False
+        if self._number_of_REPLY != len(self._replys) - 1 or self._site_id != peek_site:
+            return False
+        for i in range(1, len(self._replys)+1):
+            if self._site_id != i:
+                if self._replys[i-1] <= request_time:
+                    return False
+        return True
+
+    def enter_crtical_section(self):
+        LOGGER.info('Site[{!s}] enters crtical section'.format(self._site_id))
+        time.sleep(2)
+        self._number_of_REPLY = 0
+        self._logical_time.value +=1
+        peek_site, peek_time = self._requestQ.peek_request()
+        if peek_site != self._site_id:
+            LOGGER.error('RELEASE site[%s] not equal to site[%d]', peek_site, self._site_id)
+        else:
+            self._requestQ.pop_request()
+            LOGGER.info('Deleted request from site[%d] at time[%s]', self._site_id, self._logical_time.value)
+            LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
+        self.send_RELEASE()
+
 
 
     def acknowledge_message(self, delivery_tag):
@@ -385,6 +417,24 @@ class ExampleConsumer(object):
         """This method closes the connection to RabbitMQ."""
         LOGGER.info('Closing connection')
         self._connection.close()
+
+    def send_REPLY(self, dest_queue):
+        message = "{!s},{!s}".format(self._site_id, self._logical_time.value)
+        self._channel.basic_publish(exchange='',
+                            routing_key=dest_queue,
+                            body=message,
+                            properties=pika.BasicProperties(type="REPLY"))
+        LOGGER.info('Sent message : %s, type REPLY', message)
+
+    def send_RELEASE(self):
+        message = "{!s},{!s}".format(self._site_id,self._logical_time.value)
+        self._channel.basic_publish(exchange=self._exchange_name,
+                            routing_key='',
+                            body=message,
+                            properties=pika.BasicProperties(type="RELEASE"))
+        LOGGER.info('Broadcasted message : %s type RELEASE', message)
+
+
 
 # def main(queue_name, exchange_names):
 #     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)

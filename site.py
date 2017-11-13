@@ -21,6 +21,11 @@ class Site(object):
     
     def __init__(self, site_id, site_number):
         'parse parameter, create sharing object between process'
+        if type(site_id) is str:
+            site_id = int(site_id)
+        if type(site_number) is str:
+            site_number = int(site_number)
+        self._site_id = site_id
         self._its_queue_name = "Q{!s}".format(site_id)
         self._its_exchange_name = "X{!s}".format(site_id)
         exchange_names = []
@@ -51,16 +56,23 @@ class Site(object):
         self._p = Process(target=self.start_consumer, args=())
         self._p.start()
 
+    def start_publisher(self):
+        self._publisher = Publisher(self._its_exchange_name, self._its_queue_name)
+
+    def request_for_critical_section(self):
+        self._requestQ.add_request(self._site_id, self._logical_time.value)
+        self._publisher.send_REQUEST(self._logical_time.value)
+
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("usage: python site.py its_id total_count_of_sites")
     else:
         logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-        site = Site(int(sys.argv[1]), int(sys.argv[2]))
+        site = Site(sys.argv[1], sys.argv[2])
         #p = Process(target=site.start_consumer, args=())
         site.run_consumer_process()
-        # queue_name = sys.argv[2]
-        # exchange_name = sys.argv[3]
-        # pub = Publisher(exchange_name, queue_name)
-
+        site.start_publisher()
+        if sys.argv[1] == '1':
+            time.sleep(1)
+            site.request_for_critical_section()
         site._p.join()

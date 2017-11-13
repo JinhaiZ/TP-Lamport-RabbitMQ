@@ -31,7 +31,7 @@ class RequestQueue(object):
             time, site = heappop(self._pq)
             if site is not self._REMOVED:
                 del self._entry_finder[site]
-                return site
+                return site, time
         raise KeyError('pop from an empty priority queue')
 
     def peek_request(self):
@@ -45,8 +45,8 @@ class RequestQueue(object):
                 heappop(self._pq)
                 del self._entry_finder[site]
             else:
-                return site
-        raise KeyError('pop from an empty priority queue')
+                return site, time
+        raise KeyError('peek from an empty priority queue')
     
     def size(self):
         return len(self._pq)
