@@ -425,6 +425,7 @@ class ExampleConsumer(object):
                             body=message,
                             properties=pika.BasicProperties(type="REPLY"))
         LOGGER.info('Sent message : %s, type REPLY', message)
+        LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
 
     def send_RELEASE(self):
         message = "{!s},{!s}".format(self._site_id,self._logical_time.value)
@@ -433,6 +434,7 @@ class ExampleConsumer(object):
                             body=message,
                             properties=pika.BasicProperties(type="RELEASE"))
         LOGGER.info('Broadcasted message : %s type RELEASE', message)
+        LOGGER.info('Request queue size:{!s}, logical time: {!s}'.format(self._requestQ.size(), self._logical_time.value))
 
 
 

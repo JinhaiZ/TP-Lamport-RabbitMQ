@@ -62,6 +62,7 @@ class Site(object):
     def request_for_critical_section(self):
         self._requestQ.add_request(self._site_id, self._logical_time.value)
         self._publisher.send_REQUEST(self._logical_time.value)
+        self._logical_time.value += 1
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
