@@ -83,6 +83,17 @@ sudo invoke-rc.d rabbitmq-server start
 
 then launch a web browser with http://localhost:15672
 
+## Useful commandes for RabbitMQ
+
+- start RabbitMQ server
+
+    `sudo rabbitmqctl start_app`
+- stop RabbitMQ server
+
+    `sudo rabbitmqctl stop_app`
+- :warning: reset configuration, histroy messages
+
+    `sudo rabbitmqctl force_reset`
 
 ## Useful tutorials:
 1. [RabbitMQ Tutorials: Publish/Subscribe(using the Pika Python client)](https://www.rabbitmq.com/tutorials/tutorial-three-python.html)
