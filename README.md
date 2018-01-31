@@ -1,7 +1,23 @@
 # Lamport's Algorithm implementation based on RabbitMQ
 
-This is an implementation of Lamport's mutual exclusion algorithm for distributed system, 
-message sending and receiving are based on [Pika](https://github.com/pika/pika), the python implementaion of RabbitMQ/AMQP
+## Introduction
+
+This is a school project of the course *Implementation of Distributed Software Systems* at [IMT Atlantique](https://fr.wikipedia.org/wiki/%C3%89cole_nationale_sup%C3%A9rieure_Mines-T%C3%A9l%C3%A9com_Atlantique_Bretagne_Pays_de_la_Loire) (ex: Telecom Bretagne), the subject of this project (in French) can be found [here](./Sujet_du_TP.pdf), and the report (also in French) can be viewd [here](./Algorithme_de_Lamport_et_RabbitMQ.pdf).
+
+This is an implementation of [Lamport's distributed mutual exclusion algorithm](https://en.wikipedia.org/wiki/Lamport%27s_distributed_mutual_exclusion_algorithm), 
+message sending and receiving are based on [Pika](https://github.com/pika/pika), the python implementaion of RabbitMQ/AMQP.
+
+This is rather a demo for mutual exclusion on a distributed system than a practical mutual exclusion solution for large-scale distributed systems, for better performance we can use [Maekawa's algorithm](https://en.wikipedia.org/wiki/Maekawa%27s_algorithm) or [Raymond's algorithm](https://en.wikipedia.org/wiki/Raymond%27s_algorithm), below is a complexity comparison of these algorithmes measured by Messages per request
+
+
+| Algorithme    | Messages per request |
+| ------------- |:-------------:| 
+| Lamport       | O(N)          |
+| Maekawa       | O(√N)         |
+| Raymond       | O(log N)      |
+
+
+
 
 ## How to use
 
